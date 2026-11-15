@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#2457a6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Work Reminder">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css?v=3">
+  <title>Work Reminder</title>
+</head>
+<body class="locked">
+  <section id="authScreen" class="auth-screen"><div class="auth-box"><div class="eyebrow">WORK REMINDER</div><h1>ログイン</h1><p>Supabaseで作成したアカウントでログインしてください。</p><form id="loginForm"><label>メールアドレス<input id="loginEmail" type="email" autocomplete="username" required></label><label>アプリ専用パスワード<input id="loginPassword" type="password" autocomplete="current-password" required></label><button class="primary full" type="submit">ログイン</button></form><p id="authMessage" role="status"></p><p class="hint">会社の機密情報は、利用許可が出るまで登録しないでください。</p></div></section>
+  <div id="syncStatus" class="sync-status" aria-live="polite"></div>
+  <header class="topbar">
+    <div><div class="eyebrow">WORK REMINDER</div><h1>仕事の予定</h1></div>
+    <button id="settingsBtn" class="icon-button" aria-label="設定">⚙</button>
+  </header>
+
+  <main>
+    <section class="date-panel">
+      <div class="month-row"><button id="prevMonth" aria-label="前月">‹</button><h2 id="monthLabel"></h2><button id="nextMonth" aria-label="翌月">›</button></div>
+      <div class="weekdays"><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span><span>日</span></div>
+      <div id="calendar" class="calendar"></div>
+    </section>
+
+    <section class="summary-row">
+      <button class="filter active" data-filter="day">選択日</button>
+      <button class="filter" data-filter="today">今日</button>
+      <button class="filter" data-filter="tomorrow">明日</button>
+      <button class="filter" data-filter="week">今週</button>
+      <button class="filter" data-filter="all">すべて</button>
+    </section>
+
+    <section class="task-section">
+      <div class="section-heading"><div><div class="eyebrow">TASK LIST</div><h2 id="listTitle">選択日のタスク</h2></div><span id="taskCount" class="count">0件</span></div>
+      <div id="taskList" class="task-list"></div>
+      <div id="emptyState" class="empty">この日のタスクはありません。<br>右下の「＋」から追加できます。</div>
+    </section>
+  </main>
+
+  <button id="addBtn" class="add-button" aria-label="タスクを追加">＋</button>
+  <nav class="bottom-nav">
+    <button class="nav-item selected" data-nav="calendar">▦<span>予定</span></button>
+    <button class="nav-item" data-nav="tasks">☷<span>タスク</span></button>
+    <button class="nav-item" data-nav="clients">♙<span>取引先</span></button>
+    <button class="nav-item" data-nav="settings">⚙<span>設定</span></button>
+  </nav>
+
+  <dialog id="taskDialog">
+    <form id="taskForm" method="dialog">
+      <div class="dialog-head"><h2 id="dialogTitle">タスクを追加</h2><button type="button" class="close" id="closeDialog">×</button></div>
+      <input type="hidden" id="taskId">
+      <label>タスク名 <input id="taskName" required maxlength="100" placeholder="例：見積書を作成する"></label>
+      <div class="two-col">
+        <label>期限日 <input id="taskDate" type="date" required></label>
+        <label>時刻 <input id="taskTime" type="time"></label>
+      </div>
+      <div class="two-col">
+        <label>カテゴリー <select id="taskCategory"><option>営業</option><option>事務</option><option>社内</option><option>その他</option></select></label>
+        <label>優先順位 <select id="taskPriority"><option value="high">高</option><option value="medium" selected>中</option><option value="low">低</option></select></label>
+      </div>
+      <label>顧客・取引先 <input id="taskClient" maxlength="80" placeholder="例：株式会社〇〇（任意）"></label>
+      <label>メモ・備考 <textarea id="taskMemo" rows="3" placeholder="対応内容や補足"></textarea></label>
+      <fieldset>
+        <legend>メール通知（このタスク個別）</legend>
+        <label class="check-line"><input type="checkbox" id="notifyEnabled"> メール通知を有効にする</label>
+        <div id="notificationRows"></div>
+        <button type="button" id="addNotification" class="secondary full">＋ 通知日時を追加</button>
+        <p class="hint">通知日時は複数登録できます。現在は設定の保存のみ対応し、メールはまだ送信されません。</p>
+      </fieldset>
+      <label class="check-line"><input type="checkbox" id="repeatEnabled"> 繰り返す</label>
+      <select id="repeatType"><option value="daily">毎日</option><option value="weekly">毎週</option><option value="monthly">毎月</option></select>
+      <div class="dialog-actions"><button type="button" class="secondary" id="deleteBtn" hidden>削除</button><button type="submit" class="primary">保存する</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog">
+    <form method="dialog">
+      <div class="dialog-head"><h2>設定・データ管理</h2><button type="button" class="close" id="closeSettings">×</button></div>
+      <p>ログイン中のタスクはSupabaseに保存され、同じアカウントで同期されます。</p><p id="accountLabel" class="hint"></p><button type="button" id="logoutBtn" class="secondary full">ログアウト</button>
+      <label>メール通知の送信先（共通設定）<input id="emailRecipient" type="email" autocomplete="email" placeholder="name@example.co.jp"></label>
+      <button type="button" id="saveEmailSettings" class="primary full">メール設定を保存</button>
+      <p class="hint">このアドレスは端末内に保存されます。会社Gmailのパスワードは入力しないでください。</p>
+      <p class="hint"><strong>メール送信は未接続です。</strong>自動送信には会社の許可を確認し、認証済みのサーバーとメール送信サービスを別途設定する必要があります。タスク・取引先名・メモを外部に送る前に情報管理ルールを確認してください。</p>
+      <button type="button" id="permissionBtn" class="secondary full">通知の許可状態を確認</button>
+      <button type="button" id="exportBtn" class="secondary full">バックアップを書き出す</button>
+      <label class="secondary full import-label">クラウドにバックアップを読み込む<input type="file" id="importFile" accept="application/json"></label>
+      <p class="hint">iOSのWebアプリ通知は、ホーム画面への追加・通知許可・OSの対応状況が必要です。ブラウザを閉じている間の指定時刻通知は、この試作版では保証できません。</p>
+    </form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js?v=3"></script>
+  <script src="app.js?v=3"></script>
+</body>
+</html>
